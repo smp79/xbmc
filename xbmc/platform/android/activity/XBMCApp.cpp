@@ -74,6 +74,7 @@
 #include "filesystem/SpecialProtocol.h"
 #include "filesystem/VideoDatabaseFile.h"
 #include "guilib/GUIComponent.h"
+#include "guilib/GUIWindowManager.h"
 #include "guilib/guiinfo/GUIInfoLabels.h"
 #include "input/Key.h"
 #include "input/mouse/MouseStat.h"
@@ -283,7 +284,13 @@ void CXBMCApp::onPause()
   }
 
   if (m_hasReqVisible)
-    g_application.SwitchToFullScreen(true);
+  {
+    CGUIComponent* gui = CServiceBroker::GetGUI();
+    if (gui)
+    {
+      gui->GetWindowManager().SwitchToFullScreen(true);
+    }
+  }
 
   EnableWakeLock(false);
   m_hasReqVisible = false;
@@ -1359,6 +1366,12 @@ void CXBMCApp::SetupEnv()
   std::string className = CCompileInfo::GetPackage();
 
   std::string cacheDir = getCacheDir().getAbsolutePath();
+  std::string xbmcTemp = CJNISystem::getProperty("xbmc.temp", "");
+  if (!xbmcTemp.empty())
+  {
+    setenv("KODI_TEMP", xbmcTemp.c_str(), 0);
+  }
+
   std::string xbmcHome = CJNISystem::getProperty("xbmc.home", "");
   if (xbmcHome.empty())
   {

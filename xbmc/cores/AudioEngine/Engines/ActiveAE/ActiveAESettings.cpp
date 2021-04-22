@@ -52,6 +52,7 @@ CActiveAESettings::CActiveAESettings(CActiveAE &ae) : m_audioEngine(ae)
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_STREAMSILENCE);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_STREAMNOISE);
   settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_MAINTAINORIGINALVOLUME);
+  settingSet.insert(CSettings::SETTING_AUDIOOUTPUT_DTSHDCOREFALLBACK);
   settings->GetSettingsManager()->RegisterCallback(this, settingSet);
 
   settings->GetSettingsManager()->RegisterSettingOptionsFiller("aequalitylevels", SettingOptionsAudioQualityLevelsFiller);
@@ -124,7 +125,8 @@ void CActiveAESettings::SettingOptionsAudioStreamsilenceFiller(
 {
   CSingleLock lock(m_instance->m_cs);
 
-  list.emplace_back(g_localizeStrings.Get(20422), XbmcThreads::EndTime::InfiniteValue);
+  list.emplace_back(g_localizeStrings.Get(20422),
+                    static_cast<int>(XbmcThreads::EndTime::InfiniteValue.count()));
   list.emplace_back(g_localizeStrings.Get(13551), 0);
 
   if (m_instance->m_audioEngine.SupportsSilenceTimeout())

@@ -974,7 +974,7 @@ void CApplication::StartServices()
 
 void CApplication::StopServices()
 {
-  m_ServiceManager->GetNetwork().NetworkMessage(CNetwork::SERVICES_DOWN, 0);
+  m_ServiceManager->GetNetwork().NetworkMessage(CNetworkBase::SERVICES_DOWN, 0);
 
 #if !defined(TARGET_WINDOWS) && defined(HAS_DVD_DRIVE)
   CLog::Log(LOGINFO, "stop dvd detect media");
@@ -1610,10 +1610,14 @@ bool CApplication::OnAction(const CAction &action)
   // special case for switching between GUI & fullscreen mode.
   if (action.GetID() == ACTION_SHOW_GUI)
   { // Switch to fullscreen mode if we can
-    if (SwitchToFullScreen())
+    CGUIComponent* gui = CServiceBroker::GetGUI();
+    if (gui)
     {
-      m_navigationTimer.StartZero();
-      return true;
+      if (gui->GetWindowManager().SwitchToFullScreen())
+      {
+        m_navigationTimer.StartZero();
+        return true;
+      }
     }
   }
 
@@ -2201,7 +2205,8 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
   break;
 
   case TMSG_NETWORKMESSAGE:
-    m_ServiceManager->GetNetwork().NetworkMessage((CNetwork::EMESSAGE)pMsg->param1, pMsg->param2);
+    m_ServiceManager->GetNetwork().NetworkMessage(static_cast<CNetworkBase::EMESSAGE>(pMsg->param1),
+                                                  pMsg->param2);
     break;
 
   case TMSG_SETLANGUAGE:
@@ -2210,9 +2215,12 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
 
 
   case TMSG_SWITCHTOFULLSCREEN:
-    SwitchToFullScreen(true);
+  {
+    CGUIComponent* gui = CServiceBroker::GetGUI();
+    if (gui)
+      gui->GetWindowManager().SwitchToFullScreen(true);
     break;
-
+  }
   case TMSG_VIDEORESIZE:
   {
     XBMC_Event newEvent;
@@ -2235,7 +2243,7 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
     break;
 
   case TMSG_MINIMIZE:
-    Minimize();
+    CServiceBroker::GetWinSystem()->Minimize();
     break;
 
   case TMSG_EXECUTE_OS:
@@ -4106,7 +4114,10 @@ bool CApplication::OnMessage(CGUIMessage& message)
     break;
   case GUI_MSG_FULLSCREEN:
     { // Switch to fullscreen, if we can
-      SwitchToFullScreen();
+      CGUIComponent* gui = CServiceBroker::GetGUI();
+      if (gui)
+        gui->GetWindowManager().SwitchToFullScreen();
+
       return true;
     }
     break;
@@ -4745,70 +4756,6 @@ void CApplication::SeekPercentage(float percent)
   }
 }
 
-// SwitchToFullScreen() returns true if a switch is made, else returns false
-bool CApplication::SwitchToFullScreen(bool force /* = false */)
-{
-  // don't switch if the slideshow is active
-  if (CServiceBroker::GetGUI()->GetWindowManager().IsWindowActive(WINDOW_SLIDESHOW))
-    return false;
-
-  // if playing from the video info window, close it first!
-  if (CServiceBroker::GetGUI()->GetWindowManager().IsModalDialogTopmost(WINDOW_DIALOG_VIDEO_INFO))
-  {
-    CGUIDialogVideoInfo* pDialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogVideoInfo>(WINDOW_DIALOG_VIDEO_INFO);
-    if (pDialog) pDialog->Close(true);
-  }
-
-  // if playing from the album info window, close it first!
-  if (CServiceBroker::GetGUI()->GetWindowManager().IsModalDialogTopmost(WINDOW_DIALOG_MUSIC_INFO))
-  {
-    CGUIDialogVideoInfo* pDialog = CServiceBroker::GetGUI()->
-        GetWindowManager().GetWindow<CGUIDialogVideoInfo>(WINDOW_DIALOG_MUSIC_INFO);
-    if (pDialog)
-      pDialog->Close(true);
-  }
-
-  // if playing from the song info window, close it first!
-  if (CServiceBroker::GetGUI()->GetWindowManager().IsModalDialogTopmost(WINDOW_DIALOG_SONG_INFO))
-  {
-    CGUIDialogVideoInfo* pDialog = CServiceBroker::GetGUI()->
-        GetWindowManager().GetWindow<CGUIDialogVideoInfo>(WINDOW_DIALOG_SONG_INFO);
-    if (pDialog)
-      pDialog->Close(true);
-  }
-
-  const int activeWindowID = CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow();
-  int windowID = WINDOW_INVALID;
-
-  // See if we're playing a game
-  if (activeWindowID != WINDOW_FULLSCREEN_GAME && m_appPlayer.IsPlayingGame())
-    windowID = WINDOW_FULLSCREEN_GAME;
-
-  // See if we're playing a video
-  else if (activeWindowID != WINDOW_FULLSCREEN_VIDEO && m_appPlayer.IsPlayingVideo())
-    windowID = WINDOW_FULLSCREEN_VIDEO;
-
-  // See if we're playing an audio song
-  if (activeWindowID != WINDOW_VISUALISATION && m_appPlayer.IsPlayingAudio())
-    windowID = WINDOW_VISUALISATION;
-
-  if (windowID != WINDOW_INVALID && (force || windowID != activeWindowID))
-  {
-    if (force)
-      CServiceBroker::GetGUI()->GetWindowManager().ForceActivateWindow(windowID);
-    else
-      CServiceBroker::GetGUI()->GetWindowManager().ActivateWindow(windowID);
-
-    return true;
-  }
-
-  return false;
-}
-
-void CApplication::Minimize()
-{
-  CServiceBroker::GetWinSystem()->Minimize();
-}
 
 std::string CApplication::GetCurrentPlayer()
 {
