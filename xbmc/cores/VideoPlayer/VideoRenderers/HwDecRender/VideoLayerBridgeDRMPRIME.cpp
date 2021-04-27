@@ -266,7 +266,7 @@ void CVideoLayerBridgeDRMPRIME::Configure(CVideoBufferDRMPRIME* buffer)
 
     uint8_t eotf = GetEOTF(picture);
 
-    if (edid.SupportsEOTF(eotf))
+    
     {
       m_hdr_metadata.hdmi_metadata_type1.eotf = eotf;
 
