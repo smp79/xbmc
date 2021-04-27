@@ -370,6 +370,7 @@ void CRendererDRMPRIMEGLES::RenderUpdate(
     renderSystem->GUIShaderSetLayers(3);
   }
 
+    glActiveTexture(GL_TEXTURE0);
   renderSystem->GUIShaderSetAlpha(shaderAlpha);
 
   if (buf.m_srcPrimaries == AVCOL_PRI_BT2020 && m_videoLayerBridge->IsBT2020Enabled())
