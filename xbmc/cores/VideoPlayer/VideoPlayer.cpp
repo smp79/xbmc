@@ -485,7 +485,7 @@ void CSelectionStreams::Update(const std::shared_ptr<CDVDInputStream>& input,
       s.width = info.width;
       s.height = info.height;
       s.codec = info.codecName;
-      s.name = StringUtils::Format("%s %i", g_localizeStrings.Get(38032).c_str(), i);
+      s.name = StringUtils::Format("{} {}", g_localizeStrings.Get(38032).c_str(), i);
       Update(s);
     }
   }
@@ -563,8 +563,8 @@ int CSelectionStreams::CountTypeOfSource(StreamType type, StreamSource source) c
 
 int CSelectionStreams::CountType(StreamType type) const
 {
-  return std::count_if(m_Streams.begin(), m_Streams.end(), 
-    [&](const SelectionStream& stream) {return stream.type == type;});
+  return std::count_if(m_Streams.begin(), m_Streams.end(),
+                       [&](const SelectionStream& stream) { return stream.type == type; });
 }
 
 //------------------------------------------------------------------------------
@@ -789,7 +789,7 @@ bool CVideoPlayer::OpenInputStream()
 
     // load any subtitles from file item
     std::string key("subtitle:1");
-    for (unsigned s = 1; m_item.HasProperty(key); key = StringUtils::Format("subtitle:%u", ++s))
+    for (unsigned s = 1; m_item.HasProperty(key); key = StringUtils::Format("subtitle:{}", ++s))
       filenames.push_back(m_item.GetProperty(key).asString());
 
     for (unsigned int i=0;i<filenames.size();i++)
@@ -826,7 +826,7 @@ bool CVideoPlayer::OpenDemuxStream()
   int attempts = 10;
   while (!m_bStop && attempts-- > 0)
   {
-    m_pDemuxer = CDVDFactoryDemuxer::CreateDemuxer(m_pInputStream);
+    m_pDemuxer.reset(CDVDFactoryDemuxer::CreateDemuxer(m_pInputStream));
     if(!m_pDemuxer && m_pInputStream->IsStreamType(DVDSTREAM_TYPE_PVRMANAGER))
     {
       continue;
@@ -847,7 +847,7 @@ bool CVideoPlayer::OpenDemuxStream()
 
   m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_DEMUX);
   m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_NAV);
-  m_SelectionStreams.Update(m_pInputStream, m_pDemuxer);
+  m_SelectionStreams.Update(m_pInputStream, m_pDemuxer.get());
   m_pDemuxer->GetPrograms(m_programs);
   UpdateContent();
   m_demuxerSpeed = DVD_PLAYSPEED_NORMAL;
@@ -865,8 +865,7 @@ bool CVideoPlayer::OpenDemuxStream()
 
 void CVideoPlayer::CloseDemuxer()
 {
-  delete m_pDemuxer;
-  m_pDemuxer = nullptr;
+  m_pDemuxer.reset();
   m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_DEMUX);
 
   CServiceBroker::GetDataCacheCore().SignalAudioInfoChange();
@@ -1036,7 +1035,7 @@ bool CVideoPlayer::ReadPacket(DemuxPacket*& packet, CDemuxStream*& stream)
     if (packet->iStreamId == DMX_SPECIALID_STREAMCHANGE)
     {
       m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_DEMUX);
-      m_SelectionStreams.Update(m_pInputStream, m_pDemuxer);
+      m_SelectionStreams.Update(m_pInputStream, m_pDemuxer.get());
       m_pDemuxer->GetPrograms(m_programs);
       UpdateContent();
       OpenDefaultStreams(false);
@@ -1066,7 +1065,7 @@ bool CVideoPlayer::ReadPacket(DemuxPacket*& packet, CDemuxStream*& stream)
       if(stream->source == STREAM_SOURCE_NONE)
       {
         m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_DEMUX);
-        m_SelectionStreams.Update(m_pInputStream, m_pDemuxer);
+        m_SelectionStreams.Update(m_pInputStream, m_pDemuxer.get());
         UpdateContent();
       }
     }
@@ -1251,7 +1250,8 @@ void CVideoPlayer::Prepare()
   {
     if (m_playerOptions.startpercent > 0 && m_pDemuxer)
     {
-      int playerStartTime = (int)( ( (float) m_pDemuxer->GetStreamLength() ) * ( m_playerOptions.startpercent/(float)100 ) );
+      int playerStartTime = static_cast<int>((static_cast<double>(
+          m_pDemuxer->GetStreamLength() * (m_playerOptions.startpercent / 100.0))));
       starttime = m_Edl.RestoreCutTime(playerStartTime);
     }
     else
@@ -1531,7 +1531,7 @@ void CVideoPlayer::Process()
           if (m_pCCDemuxer->GetNrOfStreams() != m_SelectionStreams.CountTypeOfSource(STREAM_SUBTITLE, STREAM_SOURCE_VIDEOMUX))
           {
             m_SelectionStreams.Clear(STREAM_SUBTITLE, STREAM_SOURCE_VIDEOMUX);
-            m_SelectionStreams.Update(NULL, m_pCCDemuxer, "");
+            m_SelectionStreams.Update(NULL, m_pCCDemuxer.get(), "");
             UpdateContent();
             OpenDefaultStreams(false);
           }
@@ -1609,7 +1609,7 @@ void CVideoPlayer::CheckStreamChanges(CCurrentStream& current, CDemuxStream* str
     if (current.hint != CDVDStreamInfo(*stream, true))
     {
       m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_DEMUX);
-      m_SelectionStreams.Update(m_pInputStream, m_pDemuxer);
+      m_SelectionStreams.Update(m_pInputStream, m_pDemuxer.get());
       UpdateContent();
       OpenDefaultStreams(false);
     }
@@ -2105,14 +2105,14 @@ void CVideoPlayer::HandlePlaySpeed()
       }
     }
   }
-  
+
   // reset tempo
   if (!m_State.cantempo)
   {
     float currentTempo = m_processInfo->GetNewTempo();
-    if (currentTempo != 1.0)
+    if (currentTempo != 1.0f)
     {
-      SetTempo(1.0);
+      SetTempo(1.0f);
     }
   }
 }
@@ -2441,10 +2441,10 @@ void CVideoPlayer::OnExit()
   });
 
   // destroy objects
-  SAFE_DELETE(m_pDemuxer);
+  m_pDemuxer.reset();
   m_pSubtitleDemuxer.reset();
   m_subtitleDemuxerMap.clear();
-  SAFE_DELETE(m_pCCDemuxer);
+  m_pCCDemuxer.reset();
   if (m_pInputStream.use_count() > 1)
     throw std::runtime_error("m_pInputStream reference count is greater than 1");
   m_pInputStream.reset();
@@ -2513,10 +2513,10 @@ void CVideoPlayer::HandleMessages()
 
       FlushBuffers(DVD_NOPTS_VALUE, true, true);
       m_renderManager.Flush(false, false);
-      SAFE_DELETE(m_pDemuxer);
+      m_pDemuxer.reset();
       m_pSubtitleDemuxer.reset();
       m_subtitleDemuxerMap.clear();
-      SAFE_DELETE(m_pCCDemuxer);
+      m_pCCDemuxer.reset();
       if (m_pInputStream.use_count() > 1)
         throw std::runtime_error("m_pInputStream reference count is greater than 1");
       m_pInputStream.reset();
@@ -2873,7 +2873,7 @@ void CVideoPlayer::HandleMessages()
       if (m_playSpeed == DVD_PLAYSPEED_PAUSE)
       {
         int frames = static_cast<CDVDMsgInt*>(pMsg)->m_value;
-        double time = DVD_TIME_BASE / m_processInfo->GetVideoFps() * frames;
+        double time = DVD_TIME_BASE / static_cast<double>(m_processInfo->GetVideoFps()) * frames;
         m_processInfo->SetFrameAdvance(true);
         m_clock.Advance(time);
       }
@@ -3165,16 +3165,14 @@ void CVideoPlayer::GetGeneralInfo(std::string& strGeneralInfo)
     CSingleLock lock(m_StateSection);
     if (m_State.cache_bytes >= 0)
     {
-      strBuf += StringUtils::Format(" forward:%s %2.0f%%"
-                                    , StringUtils::SizeToString(m_State.cache_bytes).c_str()
-                                    , m_State.cache_level * 100);
+      strBuf += StringUtils::Format(" forward:{} {:2.0f}%",
+                                    StringUtils::SizeToString(m_State.cache_bytes).c_str(),
+                                    m_State.cache_level * 100);
       if (m_playSpeed == 0 || m_caching == CACHESTATE_FULL)
-        strBuf += StringUtils::Format(" %d msec", DVD_TIME_TO_MSEC(m_State.cache_delay));
+        strBuf += StringUtils::Format(" {} msec", DVD_TIME_TO_MSEC(m_State.cache_delay));
     }
 
-    strGeneralInfo = StringUtils::Format("Player: a/v:% 6.3f, %s"
-                                         , dDiff
-                                         , strBuf.c_str());
+    strGeneralInfo = StringUtils::Format("Player: a/v:{: 6.3f}, {}", dDiff, strBuf.c_str());
   }
 }
 
@@ -3218,7 +3216,7 @@ float CVideoPlayer::GetAVDelay()
 void CVideoPlayer::SetSubTitleDelay(float fValue)
 {
   m_processInfo->UpdateVideoSettings().SetSubtitleDelay(fValue);
-  m_VideoPlayerVideo->SetSubtitleDelay(-fValue * DVD_TIME_BASE);
+  m_VideoPlayerVideo->SetSubtitleDelay(static_cast<double>(-fValue) * DVD_TIME_BASE);
 }
 
 float CVideoPlayer::GetSubTitleDelay()
@@ -3349,7 +3347,7 @@ void CVideoPlayer::SetSpeed(float speed)
     if (iSpeed == DVD_PLAYSPEED_NORMAL)
     {
       float currentTempo = m_processInfo->GetNewTempo();
-      if (currentTempo != 1.0)
+      if (currentTempo != 1.0f)
       {
         SetTempo(currentTempo);
         return;
@@ -3361,7 +3359,7 @@ void CVideoPlayer::SetSpeed(float speed)
 
 void CVideoPlayer::SetTempo(float tempo)
 {
-  tempo = floor(tempo * 100 + 0.5) / 100;
+  tempo = floor(tempo * 100.0f + 0.5f) / 100.0f;
   if (m_processInfo->IsTempoAllowed(tempo))
   {
     int speed = tempo * DVD_PLAYSPEED_NORMAL;
@@ -3555,9 +3553,9 @@ bool CVideoPlayer::OpenVideoStream(CDVDStreamInfo& hint, bool reset)
   {
     /* set aspect ratio as requested by navigator for dvd's */
     float aspect = std::static_pointer_cast<CDVDInputStreamNavigator>(m_pInputStream)->GetVideoAspectRatio();
-    if (aspect != 0.0)
+    if (aspect != 0.0f)
     {
-      hint.aspect = aspect;
+      hint.aspect = static_cast<double>(aspect);
       hint.forced_aspect = true;
     }
     hint.dvd = true;
@@ -3619,7 +3617,7 @@ bool CVideoPlayer::OpenVideoStream(CDVDStreamInfo& hint, bool reset)
      m_CurrentVideo.hint != hint)
   {
     if (hint.codec == AV_CODEC_ID_MPEG2VIDEO || hint.codec == AV_CODEC_ID_H264)
-      SAFE_DELETE(m_pCCDemuxer);
+      m_pCCDemuxer.reset();
 
     if (!player->OpenStream(hint))
       return false;
@@ -3648,7 +3646,7 @@ bool CVideoPlayer::OpenVideoStream(CDVDStreamInfo& hint, bool reset)
   // open CC demuxer if video is mpeg2
   if ((hint.codec == AV_CODEC_ID_MPEG2VIDEO || hint.codec == AV_CODEC_ID_H264) && !m_pCCDemuxer)
   {
-    m_pCCDemuxer = new CDVDDemuxCC(hint.codec);
+    m_pCCDemuxer = std::make_unique<CDVDDemuxCC>(hint.codec);
     m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_VIDEOMUX);
   }
 
@@ -4035,12 +4033,12 @@ int CVideoPlayer::OnDiscNavResult(void* pData, int iMessage)
         m_overlayContainer.Clear();
 
         //Force an aspect ratio that is set in the dvdheaders if available
-        m_CurrentVideo.hint.aspect = pStream->GetVideoAspectRatio();
+        m_CurrentVideo.hint.aspect = static_cast<double>(pStream->GetVideoAspectRatio());
         if( m_VideoPlayerVideo->IsInited() )
           m_VideoPlayerVideo->SendMessage(new CDVDMsgDouble(CDVDMsg::VIDEO_SET_ASPECT, m_CurrentVideo.hint.aspect));
 
         m_SelectionStreams.Clear(STREAM_NONE, STREAM_SOURCE_NAV);
-        m_SelectionStreams.Update(m_pInputStream, m_pDemuxer);
+        m_SelectionStreams.Update(m_pInputStream, m_pDemuxer.get());
         UpdateContent();
 
         return NAVRESULT_HOLD;

@@ -952,7 +952,7 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
     aspect_ratio = av_q2d(pixel_aspect) * pVideoPicture->iWidth / pVideoPicture->iHeight;
 
   if (aspect_ratio <= 0.0)
-    aspect_ratio = (float)pVideoPicture->iWidth / (float)pVideoPicture->iHeight;
+    aspect_ratio = static_cast<double>(pVideoPicture->iWidth) / pVideoPicture->iHeight;
 
   if (m_DAR != aspect_ratio)
   {
@@ -1142,14 +1142,12 @@ int CDVDVideoCodecFFmpeg::FilterOpen(const std::string& filters, bool scale)
   const AVFilter* srcFilter = avfilter_get_by_name("buffer");
   const AVFilter* outFilter = avfilter_get_by_name("buffersink"); // should be last filter in the graph for now
 
-  std::string args = StringUtils::Format("%d:%d:%d:%d:%d:%d:%d",
-                                        m_pCodecContext->width,
-                                        m_pCodecContext->height,
-                                        m_pCodecContext->pix_fmt,
-                                        m_pCodecContext->time_base.num ? m_pCodecContext->time_base.num : 1,
-                                        m_pCodecContext->time_base.num ? m_pCodecContext->time_base.den : 1,
-                                        m_pCodecContext->sample_aspect_ratio.num != 0 ? m_pCodecContext->sample_aspect_ratio.num : 1,
-                                        m_pCodecContext->sample_aspect_ratio.num != 0 ? m_pCodecContext->sample_aspect_ratio.den : 1);
+  std::string args = StringUtils::Format(
+      "{}:{}:{}:{}:{}:{}:{}", m_pCodecContext->width, m_pCodecContext->height,
+      m_pCodecContext->pix_fmt, m_pCodecContext->time_base.num ? m_pCodecContext->time_base.num : 1,
+      m_pCodecContext->time_base.num ? m_pCodecContext->time_base.den : 1,
+      m_pCodecContext->sample_aspect_ratio.num != 0 ? m_pCodecContext->sample_aspect_ratio.num : 1,
+      m_pCodecContext->sample_aspect_ratio.num != 0 ? m_pCodecContext->sample_aspect_ratio.den : 1);
 
   if ((result = avfilter_graph_create_filter(&m_pFilterIn, srcFilter, "src", args.c_str(), NULL, m_pFilterGraph)) < 0)
   {

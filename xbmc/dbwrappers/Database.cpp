@@ -144,7 +144,7 @@ CDatabase::DatasetLayout::DatasetLayout(size_t totalfields)
 }
 
 void CDatabase::DatasetLayout::SetField(int fieldNo, const std::string &strField, bool bOutput /*= false*/)
-{  
+{
   if (fieldNo >= 0 && fieldNo < static_cast<int>(m_fields.size()))
   {
     m_fields[fieldNo].strField = strField;
@@ -524,7 +524,7 @@ bool CDatabase::Open(const DatabaseSettings &settings)
   InitSettings(dbSettings);
 
   std::string dbName = dbSettings.name;
-  dbName += StringUtils::Format("%d", GetSchemaVersion());
+  dbName += StringUtils::Format("{}", GetSchemaVersion());
   return Connect(dbName, dbSettings, false);
 }
 

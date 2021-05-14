@@ -307,8 +307,8 @@ void CGUIDialogMediaFilter::OnSettingChanged(const std::shared_ptr<const CSettin
       float valueLower = values.at(0).asFloat();
       float valueUpper = values.at(1).asFloat();
 
-      if (valueLower > definitionNumber->GetMinimum() ||
-          valueUpper < definitionNumber->GetMaximum())
+      if (static_cast<double>(valueLower) > definitionNumber->GetMinimum() ||
+          static_cast<double>(valueUpper) < definitionNumber->GetMaximum())
       {
         strValueLower = values.at(0).asString();
         strValueUpper = values.at(1).asString();
@@ -415,7 +415,8 @@ void CGUIDialogMediaFilter::InitializeSettings()
       }
     }
 
-    std::string settingId = StringUtils::Format("filter.%s.%d", filter.mediaType.c_str(), filter.field);
+    std::string settingId =
+        StringUtils::Format("filter.{}.{}", filter.mediaType.c_str(), filter.field);
     if (filter.controlType == "edit")
     {
       CVariant data;
@@ -788,7 +789,9 @@ void CGUIDialogMediaFilter::GetRange(const Filter &filter, int &min, int &interv
       else if (m_mediaType == "tvshows")
       {
         table = "tvshow_view";
-        year = StringUtils::Format("strftime(\"%%Y\", %s)", DatabaseUtils::GetField(FieldYear, MediaTypeTvShow, DatabaseQueryPartWhere).c_str());
+        year = StringUtils::Format(
+            "strftime(\"%%Y\", {})",
+            DatabaseUtils::GetField(FieldYear, MediaTypeTvShow, DatabaseQueryPartWhere).c_str());
       }
       else if (m_mediaType == "musicvideos")
       {
@@ -823,7 +826,8 @@ void CGUIDialogMediaFilter::GetRange(const Filter &filter, int &min, int &interv
 
     if (m_mediaType == "episodes")
     {
-      std::string field = StringUtils::Format("CAST(strftime(\"%%s\", c%02d) AS INTEGER)", VIDEODB_ID_EPISODE_AIRED);
+      std::string field = StringUtils::Format("CAST(strftime(\"%%s\", c{:02}) AS INTEGER)",
+                                              VIDEODB_ID_EPISODE_AIRED);
 
       GetMinMax("episode_view", field, min, max);
       interval = 60 * 60 * 24 * 7; // 1 week

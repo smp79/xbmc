@@ -441,7 +441,7 @@ bool CPVRClient::GetAddonProperties()
     return false;
 
   /* display name = backend name:connection string */
-  strFriendlyName = StringUtils::Format("%s:%s", strBackendName, strConnectionString);
+  strFriendlyName = StringUtils::Format("{}:{}", strBackendName, strConnectionString);
 
   /* backend version number */
   retVal = DoAddonCall(
@@ -664,6 +664,8 @@ PVR_ERROR CPVRClient::RenameChannel(const std::shared_ptr<CPVRChannel>& channel)
       [channel](const AddonInstance* addon) {
         PVR_CHANNEL addonChannel;
         WriteClientChannelInfo(channel, addonChannel);
+        strncpy(addonChannel.strChannelName, channel->ChannelName().c_str(),
+                sizeof(addonChannel.strChannelName) - 1);
         return addon->toAddon->RenameChannel(addon, &addonChannel);
       },
       m_clientCapabilities.SupportsChannelSettings());
@@ -1767,8 +1769,8 @@ void CPVRClient::cb_transfer_channel_entry(void* kodiInstance,
         std::make_shared<CPVRChannel>(*channel, client->GetID());
     CPVRChannelGroupInternal* channels =
         static_cast<CPVRChannelGroupInternal*>(handle->dataAddress);
-    channels->UpdateFromClient(transferChannel, CPVRChannelNumber(), channel->iOrder,
-                               transferChannel->ClientChannelNumber());
+    channels->UpdateFromClient(transferChannel, transferChannel->ClientChannelNumber(),
+                               channel->iOrder);
   });
 }
 
@@ -2083,7 +2085,7 @@ void CPVRClientCapabilities::InitRecordingsLifetimeValues()
       if (strDescr.empty())
       {
         // No description given by addon. Create one from value.
-        strDescr = StringUtils::Format("%d", iValue);
+        strDescr = StringUtils::Format("{}", iValue);
       }
       m_recordingsLifetimeValues.emplace_back(strDescr, iValue);
     }

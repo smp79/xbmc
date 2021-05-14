@@ -221,13 +221,13 @@ namespace XBMCAddon
       else if (lowerKey == "totaltime")
       {
         CBookmark resumePoint(GetVideoInfoTag()->GetResumePoint());
-        resumePoint.totalTimeInSeconds = static_cast<float>(atof(value.c_str()));
+        resumePoint.totalTimeInSeconds = atof(value.c_str());
         GetVideoInfoTag()->SetResumePoint(resumePoint);
       }
       else if (lowerKey == "resumetime")
       {
         CBookmark resumePoint(GetVideoInfoTag()->GetResumePoint());
-        resumePoint.timeInSeconds = static_cast<float>(atof(value.c_str()));
+        resumePoint.timeInSeconds = atof(value.c_str());
         GetVideoInfoTag()->SetResumePoint(resumePoint);
       }
       else if (lowerKey == "specialsort")
@@ -258,12 +258,12 @@ namespace XBMCAddon
       if (lowerKey == "startoffset")
       { // special case for start offset - don't actually store in a property,
         // we store it in item.m_lStartOffset instead
-        value = StringUtils::Format("%f", CUtil::ConvertMilliSecsToSecs(item->m_lStartOffset));
+        value = StringUtils::Format("{:f}", CUtil::ConvertMilliSecsToSecs(item->m_lStartOffset));
       }
       else if (lowerKey == "totaltime")
-        value = StringUtils::Format("%f", GetVideoInfoTag()->GetResumePoint().totalTimeInSeconds);
+        value = StringUtils::Format("{:f}", GetVideoInfoTag()->GetResumePoint().totalTimeInSeconds);
       else if (lowerKey == "resumetime")
-        value = StringUtils::Format("%f", GetVideoInfoTag()->GetResumePoint().timeInSeconds);
+        value = StringUtils::Format("{:f}", GetVideoInfoTag()->GetResumePoint().timeInSeconds);
       else if (lowerKey == "fanart_image")
         value = item->GetArt("fanart");
       else
@@ -813,8 +813,8 @@ namespace XBMCAddon
           throw ListItemException("Must pass in a list of tuples of pairs of strings. One entry in the list only has %d elements.",tuple.GetNumValuesSet());
 
         XBMCAddonUtils::GuiLock lock(languageHook, m_offscreen);
-        item->SetProperty(StringUtils::Format("contextmenulabel(%zu)", i), tuple.first());
-        item->SetProperty(StringUtils::Format("contextmenuaction(%zu)", i), tuple.second());
+        item->SetProperty(StringUtils::Format("contextmenulabel({})", i), tuple.first());
+        item->SetProperty(StringUtils::Format("contextmenuaction({})", i), tuple.second());
       }
     }
 
@@ -824,7 +824,7 @@ namespace XBMCAddon
       unsigned int i = 1;
       for (const auto& it: paths)
       {
-        String property = StringUtils::Format("subtitle:%u", i++);
+        String property = StringUtils::Format("subtitle:{}", i++);
         item->SetProperty(property, it);
       }
     }

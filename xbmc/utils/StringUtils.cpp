@@ -1072,10 +1072,10 @@ int64_t StringUtils::AlphaNumericCompare(const wchar_t* left, const wchar_t* rig
     // alphanumeric ascii, rather than some being mixed between the numbers and letters, and
     // above all other unicode letters, symbols and punctuation.
     // (Locale collation of these chars varies across platforms)
-    lsym = (lc >= 32 && lc < L'0') || (lc > L'9' && lc < L'A') || 
-           (lc > L'Z' && lc < L'a') || (lc > L'z' && lc < 128);
-    rsym = (rc >= 32 && rc < L'0') || (rc > L'9' && rc < L'A') || 
-           (rc > L'Z' && rc < L'a') || (rc > L'z' && rc < 128);
+    lsym = (lc >= 32 && lc < L'0') || (lc > L'9' && lc < L'A') || (lc > L'Z' && lc < L'a') ||
+           (lc > L'z' && lc < 128);
+    rsym = (rc >= 32 && rc < L'0') || (rc > L'9' && rc < L'A') || (rc > L'Z' && rc < L'a') ||
+           (rc > L'z' && rc < 128);
     if (lsym && !rsym)
       return -1;
     if (!lsym && rsym)
@@ -1086,7 +1086,7 @@ int64_t StringUtils::AlphaNumericCompare(const wchar_t* left, const wchar_t* rig
         return lc - rc;
       else
       { // Same symbol advance to next wchar
-        l++; 
+        l++;
         r++;
         continue;
       }
@@ -1393,13 +1393,13 @@ std::string StringUtils::SecondsToTimeString(long lSeconds, TIME_FORMAT format)
 
   std::string strHMS;
   if (format == TIME_FORMAT_SECS)
-    strHMS = StringUtils::Format("%i", lSeconds);
+    strHMS = StringUtils::Format("{}", lSeconds);
   else if (format == TIME_FORMAT_MINS)
-    strHMS = StringUtils::Format("%i", lrintf(static_cast<float>(lSeconds) / 60.0f));
+    strHMS = StringUtils::Format("{}", lrintf(static_cast<float>(lSeconds) / 60.0f));
   else if (format == TIME_FORMAT_HOURS)
-    strHMS = StringUtils::Format("%i", lrintf(static_cast<float>(lSeconds) / 3600.0f));
+    strHMS = StringUtils::Format("{}", lrintf(static_cast<float>(lSeconds) / 3600.0f));
   else if (format & TIME_FORMAT_M)
-    strHMS += StringUtils::Format("%i", lSeconds % 3600 / 60);
+    strHMS += StringUtils::Format("{}", lSeconds % 3600 / 60);
   else
   {
     int hh = lSeconds / 3600;
@@ -1410,13 +1410,13 @@ std::string StringUtils::SecondsToTimeString(long lSeconds, TIME_FORMAT format)
     if (format == TIME_FORMAT_GUESS)
       format = (hh >= 1) ? TIME_FORMAT_HH_MM_SS : TIME_FORMAT_MM_SS;
     if (format & TIME_FORMAT_HH)
-      strHMS += StringUtils::Format("%2.2i", hh);
+      strHMS += StringUtils::Format("{:02}", hh);
     else if (format & TIME_FORMAT_H)
-      strHMS += StringUtils::Format("%i", hh);
+      strHMS += StringUtils::Format("{}", hh);
     if (format & TIME_FORMAT_MM)
-      strHMS += StringUtils::Format(strHMS.empty() ? "%2.2i" : ":%2.2i", mm);
+      strHMS += StringUtils::Format(strHMS.empty() ? "{:02}" : ":{:02}", mm);
     if (format & TIME_FORMAT_SS)
-      strHMS += StringUtils::Format(strHMS.empty() ? "%2.2i" : ":%2.2i", ss);
+      strHMS += StringUtils::Format(strHMS.empty() ? "{:02}" : ":{:02}", ss);
   }
 
   if (isNegative)
@@ -1501,14 +1501,14 @@ std::string StringUtils::SizeToString(int64_t size)
   else if (i == ARRAY_SIZE(prefixes))
   {
     if (s >= 1000.0)
-      strLabel = StringUtils::Format(">999.99 %cB", prefixes[i - 1]);
+      strLabel = StringUtils::Format(">999.99 {}B", prefixes[i - 1]);
     else
-      strLabel = StringUtils::Format("%.2lf %cB", s, prefixes[i - 1]);
+      strLabel = StringUtils::Format("{:.2f} {}B", s, prefixes[i - 1]);
   }
   else if (s >= 100.0)
-    strLabel = StringUtils::Format("%.1lf %cB", s, prefixes[i]);
+    strLabel = StringUtils::Format("{:.1f} {}B", s, prefixes[i]);
   else
-    strLabel = StringUtils::Format("%.2lf %cB", s, prefixes[i]);
+    strLabel = StringUtils::Format("{:.2f} {}B", s, prefixes[i]);
 
   return strLabel;
 }

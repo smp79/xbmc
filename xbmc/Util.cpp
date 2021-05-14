@@ -7,7 +7,6 @@
  */
 
 #include "network/Network.h"
-#include "threads/SystemClock.h"
 #if defined(TARGET_DARWIN)
 #include <sys/param.h>
 #include <mach-o/dyld.h>
@@ -551,7 +550,7 @@ void CUtil::GetFileAndProtocol(const std::string& strURL, std::string& strDir)
   if (URIUtils::IsDVD(strURL)) return ;
 
   CURL url(strURL);
-  strDir = StringUtils::Format("%s://%s", url.GetProtocol().c_str(), url.GetFileName().c_str());
+  strDir = StringUtils::Format("{}://{}", url.GetProtocol().c_str(), url.GetFileName().c_str());
 }
 
 int CUtil::GetDVDIfoTitle(const std::string& strFile)
@@ -1412,7 +1411,7 @@ double CUtil::AlbumRelevance(const std::string& strAlbumTemp1, const std::string
   std::string strAlbum = strAlbum1;
   StringUtils::ToLower(strAlbum);
   double fAlbumPercentage = fstrcmp(strAlbumTemp.c_str(), strAlbum.c_str());
-  double fArtistPercentage = 0.0f;
+  double fArtistPercentage = 0.0;
   if (!strArtist1.empty())
   {
     std::string strArtistTemp = strArtistTemp1;
@@ -1421,7 +1420,7 @@ double CUtil::AlbumRelevance(const std::string& strAlbumTemp1, const std::string
     StringUtils::ToLower(strArtist);
     fArtistPercentage = fstrcmp(strArtistTemp.c_str(), strArtist.c_str());
   }
-  double fRelevance = fAlbumPercentage * 0.5f + fArtistPercentage * 0.5f;
+  double fRelevance = fAlbumPercentage * 0.5 + fArtistPercentage * 0.5;
   return fRelevance;
 }
 
@@ -1471,7 +1470,7 @@ bool CUtil::MakeShortenPath(std::string StrInput, std::string& StrOutput, size_t
     iStrInputSize = StrInput.size();
   }
   // replace any additional /../../ with just /../ if necessary
-  std::string replaceDots = StringUtils::Format("..%c..", cDelim);
+  std::string replaceDots = StringUtils::Format("..{}..", cDelim);
   while (StrInput.size() > (unsigned int)iTextMaxLength)
     if (!StringUtils::Replace(StrInput, replaceDots, ".."))
       break;
@@ -1983,7 +1982,7 @@ int CUtil::ScanArchiveForAssociatedItems(const std::string& strArchivePath,
 
 void CUtil::ScanForExternalSubtitles(const std::string& strMovie, std::vector<std::string>& vecSubtitles)
 {
-  unsigned int startTimer = XbmcThreads::SystemClockMillis();
+  auto start = std::chrono::steady_clock::now();
 
   CFileItem item(strMovie, false);
   if ((item.IsInternetStream() && !URIUtils::IsOnLAN(item.GetDynPath()))
@@ -2060,7 +2059,8 @@ void CUtil::ScanForExternalSubtitles(const std::string& strMovie, std::vector<st
         {
           for (const auto &lang : TagConv.m_Langclass)
           {
-            std::string strDest = StringUtils::Format("special://temp/subtitle.%s.%zu.smi", lang.Name.c_str(), i);
+            std::string strDest =
+                StringUtils::Format("special://temp/subtitle.{}.{}.smi", lang.Name.c_str(), i);
             if (CFile::Copy(vecSubtitles[i], strDest))
             {
               CLog::Log(LOGINFO, " cached subtitle %s->%s",
@@ -2072,7 +2072,10 @@ void CUtil::ScanForExternalSubtitles(const std::string& strMovie, std::vector<st
       }
     }
   }
-  CLog::Log(LOGDEBUG, "%s: END (total time: %i ms)", __FUNCTION__, (int)(XbmcThreads::SystemClockMillis() - startTimer));
+
+  auto end = std::chrono::steady_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  CLog::Log(LOGDEBUG, "{}: END (total time: {} ms)", __FUNCTION__, duration.count());
 }
 
 ExternalStreamInfo CUtil::GetExternalStreamDetailsFromFilename(const std::string& videoPath, const std::string& associatedFile)

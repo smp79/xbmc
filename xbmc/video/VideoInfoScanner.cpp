@@ -36,7 +36,6 @@
 #include "settings/Settings.h"
 #include "settings/SettingsComponent.h"
 #include "tags/VideoInfoTagLoaderFactory.h"
-#include "threads/SystemClock.h"
 #include "utils/Digest.h"
 #include "utils/FileExtensionProvider.h"
 #include "utils/RegExp.h"
@@ -98,7 +97,7 @@ namespace VIDEO
         return;
       }
 
-      unsigned int tick = XbmcThreads::SystemClockMillis();
+      auto start = std::chrono::steady_clock::now();
 
       m_database.Open();
 
@@ -156,9 +155,11 @@ namespace VIDEO
       CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetLibraryInfoProvider().ResetLibraryBools();
       m_database.Close();
 
-      tick = XbmcThreads::SystemClockMillis() - tick;
-      CLog::Log(LOGINFO, "VideoInfoScanner: Finished scan. Scanning for video info took %s",
-                StringUtils::SecondsToTimeString(tick / 1000).c_str());
+      auto end = std::chrono::steady_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+      CLog::Log(LOGINFO, "VideoInfoScanner: Finished scan. Scanning for video info took {} ms",
+                duration.count());
     }
     catch (...)
     {
@@ -1314,7 +1315,9 @@ namespace VIDEO
 
     if (showInfo && content == CONTENT_TVSHOWS)
     {
-      strTitle = StringUtils::Format("%s - %ix%i - %s", showInfo->m_strTitle.c_str(), movieDetails.m_iSeason, movieDetails.m_iEpisode, strTitle.c_str());
+      strTitle =
+          StringUtils::Format("{} - {}x{} - {}", showInfo->m_strTitle.c_str(),
+                              movieDetails.m_iSeason, movieDetails.m_iEpisode, strTitle.c_str());
     }
 
     CLog::Log(LOGDEBUG, "VideoInfoScanner: Adding new item to {}:{}", TranslateContent(content), CURL::GetRedacted(pItem->GetPath()));
@@ -1919,7 +1922,9 @@ namespace VIDEO
         if (pItem->m_dwSize)
           digest.Update(std::to_string(pItem->m_dwSize));
         if (pItem->m_dateTime.IsValid())
-          digest.Update(StringUtils::Format("%02i.%02i.%04i", pItem->m_dateTime.GetDay(), pItem->m_dateTime.GetMonth(), pItem->m_dateTime.GetYear()));
+          digest.Update(StringUtils::Format("{:02}.{:02}.{:04}", pItem->m_dateTime.GetDay(),
+                                            pItem->m_dateTime.GetMonth(),
+                                            pItem->m_dateTime.GetYear()));
       }
       else
       {
@@ -2051,7 +2056,7 @@ namespace VIDEO
         else if (season == 0)
           basePath = "season-specials";
         else
-          basePath = StringUtils::Format("season%02i", season);
+          basePath = StringUtils::Format("season{:02}", season);
 
         AddLocalItemArtwork(art, artTypes,
           URIUtils::AddFileToFolder(show.m_strPath, basePath),

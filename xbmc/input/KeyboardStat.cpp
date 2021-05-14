@@ -19,7 +19,6 @@
 #include "input/XBMC_vkeys.h"
 #include "peripherals/Peripherals.h"
 #include "peripherals/devices/PeripheralHID.h"
-#include "threads/SystemClock.h"
 #include "utils/log.h"
 #include "windowing/XBMC_events.h"
 
@@ -35,7 +34,7 @@ bool operator==(const XBMC_keysym& lhs, const XBMC_keysym& rhs)
 CKeyboardStat::CKeyboardStat()
 {
   memset(&m_lastKeysym, 0, sizeof(m_lastKeysym));
-  m_lastKeyTime = 0;
+  m_lastKeyTime = {};
 }
 
 void CKeyboardStat::Initialize()
@@ -68,7 +67,7 @@ CKey CKeyboardStat::TranslateKey(XBMC_keysym& keysym) const
   char ascii;
   uint32_t modifiers;
   uint32_t lockingModifiers;
-  unsigned int held;
+  std::chrono::milliseconds held;
   XBMCKEYTABLE keytable;
 
   modifiers = 0;
@@ -101,7 +100,7 @@ CKey CKeyboardStat::TranslateKey(XBMC_keysym& keysym) const
   unicode = keysym.unicode;
   ascii = 0;
   vkey = 0;
-  held = 0;
+  held = std::chrono::milliseconds(0);
 
   // Start by check whether any of the HID peripherals wants to translate this keypress
   if (LookupSymAndUnicodePeripherals(keysym, &vkey, &ascii))
@@ -166,8 +165,10 @@ CKey CKeyboardStat::TranslateKey(XBMC_keysym& keysym) const
 
   if (keysym == m_lastKeysym)
   {
-    held = XbmcThreads::SystemClockMillis() - m_lastKeyTime;
-    if (held > HOLD_TRESHOLD)
+    auto now = std::chrono::steady_clock::now();
+
+    held = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastKeyTime);
+    if (held.count() > HOLD_TRESHOLD)
       modifiers |= CKey::MODIFIER_LONG;
   }
 
@@ -184,7 +185,7 @@ CKey CKeyboardStat::TranslateKey(XBMC_keysym& keysym) const
 
   // Create and return a CKey
 
-  CKey key(keycode, vkey, unicode, ascii, modifiers, lockingModifiers, held);
+  CKey key(keycode, vkey, unicode, ascii, modifiers, lockingModifiers, held.count());
 
   return key;
 }
@@ -194,14 +195,14 @@ void CKeyboardStat::ProcessKeyDown(XBMC_keysym& keysym)
   if (!(m_lastKeysym == keysym))
   {
     m_lastKeysym = keysym;
-    m_lastKeyTime = XbmcThreads::SystemClockMillis();
+    m_lastKeyTime = std::chrono::steady_clock::now();
   }
 }
 
 void CKeyboardStat::ProcessKeyUp(void)
 {
   memset(&m_lastKeysym, 0, sizeof(m_lastKeysym));
-  m_lastKeyTime = 0;
+  m_lastKeyTime = {};
 }
 
 // Return the key name given a key ID
@@ -238,16 +239,16 @@ std::string CKeyboardStat::GetKeyName(int KeyID)
   if (VKeyFound)
     keyname.append(keytable.keyname);
   else
-    keyname += StringUtils::Format("%i", keyid);
+    keyname += StringUtils::Format("{}", keyid);
 
   // in case this might be an universalremote keyid
   // we also print the possible corresponding obc code
   // so users can easily find it in their universalremote
   // map xml
   if (VKeyFound || keyid > 255)
-    keyname += StringUtils::Format(" (0x%02x)", KeyID);
+    keyname += StringUtils::Format(" ({:#02x})", KeyID);
   else // obc keys are 255 -rawid
-    keyname += StringUtils::Format(" (0x%02x, obc%i)", KeyID, 255 - KeyID);
+    keyname += StringUtils::Format(" ({:#02x}, obc{})", KeyID, 255 - KeyID);
 
   return keyname;
 }

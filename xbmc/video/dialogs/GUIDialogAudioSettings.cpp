@@ -54,7 +54,7 @@ void CGUIDialogAudioSettings::FrameMove()
   // update the volume setting if necessary
   float newVolume = g_application.GetVolumeRatio();
   if (newVolume != m_volume)
-    GetSettingsManager()->SetNumber(SETTING_AUDIO_VOLUME, newVolume);
+    GetSettingsManager()->SetNumber(SETTING_AUDIO_VOLUME, static_cast<double>(newVolume));
 
   if (g_application.GetAppPlayer().HasPlayer())
   {
@@ -62,7 +62,8 @@ void CGUIDialogAudioSettings::FrameMove()
 
     // these settings can change on the fly
     //! @todo (needs special handling): m_settingsManager->SetInt(SETTING_AUDIO_STREAM, g_application.GetAppPlayer().GetAudioStream());
-    GetSettingsManager()->SetNumber(SETTING_AUDIO_DELAY, videoSettings.m_AudioDelay);
+    GetSettingsManager()->SetNumber(SETTING_AUDIO_DELAY,
+                                    static_cast<double>(videoSettings.m_AudioDelay));
     GetSettingsManager()->SetBool(SETTING_AUDIO_PASSTHROUGH, CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_AUDIOOUTPUT_PASSTHROUGH));
   }
 
@@ -336,7 +337,7 @@ void CGUIDialogAudioSettings::AudioStreamsOptionFiller(const SettingConstPtr& se
     strItem = StringUtils::Format(strFormat, strLanguage.c_str(), info.name.c_str(), info.channels);
 
     strItem += FormatFlags(info.flags);
-    strItem += StringUtils::Format(" (%i/%i)", i + 1, audioStreamCount);
+    strItem += StringUtils::Format(" ({}/{})", i + 1, audioStreamCount);
     list.emplace_back(strItem, i);
   }
 
@@ -402,7 +403,7 @@ std::string CGUIDialogAudioSettings::FormatFlags(StreamFlags flags)
   std::string formated = StringUtils::Join(localizedFlags, ", ");
 
   if (!formated.empty())
-    formated = StringUtils::Format(" [%s]", formated);
+    formated = StringUtils::Format(" [{}]", formated);
 
   return formated;
 }
