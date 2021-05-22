@@ -337,6 +337,7 @@ void CAdvancedSettings::Initialize()
   m_curlconnecttimeout = 30;
   m_curllowspeedtime = 20;
   m_curlretries = 2;
+  m_curlKeepAliveInterval = 30;
   m_curlDisableIPV6 = false;      //Certain hardware/OS combinations have trouble
                                   //with ipv6.
   m_curlDisableHTTP2 = false;
@@ -378,8 +379,9 @@ void CAdvancedSettings::Initialize()
   m_PVRDefaultSortOrder.sortOrder = SortOrderDescending;
 
   m_cacheMemSize = 1024 * 1024 * 20; // 20 MiB
-  m_cacheBufferMode = CACHE_BUFFER_MODE_INTERNET; // Default (buffer all internet streams/filesystems)
+  m_cacheBufferMode = CACHE_BUFFER_MODE_REMOTE; // Default (buffer all remote filesystems)
   m_cacheChunkSize = 128 * 1024; // 128 KiB
+
   // the following setting determines the readRate of a player data
   // as multiply of the default data read rate
   m_cacheReadFactor = 4.0f;
@@ -426,6 +428,7 @@ void CAdvancedSettings::Initialize()
   m_userAgent = g_sysinfo.GetUserAgent();
 
   m_nfsTimeout = 5;
+  m_nfsRetries = -1;
 
   m_initialized = true;
 }
@@ -514,6 +517,10 @@ void CAdvancedSettings::ParseSettingsFile(const std::string &file)
 #else
       CLog::Log(LOGWARNING, "nfstimeout unsupported");
 #endif
+    }
+    if (network->FirstChildElement("nfsretries"))
+    {
+      XMLUtils::GetInt(network, "nfsretries", m_nfsRetries, -1, 30);
     }
   }
 
@@ -821,6 +828,7 @@ void CAdvancedSettings::ParseSettingsFile(const std::string &file)
     XMLUtils::GetInt(pElement, "curlclienttimeout", m_curlconnecttimeout, 1, 1000);
     XMLUtils::GetInt(pElement, "curllowspeedtime", m_curllowspeedtime, 1, 1000);
     XMLUtils::GetInt(pElement, "curlretries", m_curlretries, 0, 10);
+    XMLUtils::GetInt(pElement, "curlkeepaliveinterval", m_curlKeepAliveInterval, 0, 300);
     XMLUtils::GetBoolean(pElement, "disableipv6", m_curlDisableIPV6);
     XMLUtils::GetBoolean(pElement, "disablehttp2", m_curlDisableHTTP2);
     XMLUtils::GetString(pElement, "catrustfile", m_caTrustFile);

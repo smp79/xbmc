@@ -285,6 +285,7 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
     int m_curlconnecttimeout;
     int m_curllowspeedtime;
     int m_curlretries;
+    int m_curlKeepAliveInterval;    // seconds
     bool m_curlDisableIPV6;
     bool m_curlDisableHTTP2;
 
@@ -375,6 +376,7 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
 
     std::string m_userAgent;
     uint32_t m_nfsTimeout;
+    int m_nfsRetries;
 
   private:
     void Initialize();

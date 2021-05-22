@@ -661,6 +661,8 @@ PVR_ERROR CPVRClient::RenameChannel(const std::shared_ptr<CPVRChannel>& channel)
       [channel](const AddonInstance* addon) {
         PVR_CHANNEL addonChannel;
         WriteClientChannelInfo(channel, addonChannel);
+        strncpy(addonChannel.strChannelName, channel->ChannelName().c_str(),
+                sizeof(addonChannel.strChannelName) - 1);
         return addon->toAddon->RenameChannel(addon, &addonChannel);
       },
       m_clientCapabilities.SupportsChannelSettings());
@@ -1776,7 +1778,7 @@ void CPVRClient::cb_transfer_recording_entry(void* kodiInstance,
 
   /* transfer this entry to the recordings container */
   std::shared_ptr<CPVRRecording> transferRecording(new CPVRRecording(*recording, client->GetID()));
-  kodiRecordings->UpdateFromClient(transferRecording);
+  kodiRecordings->UpdateFromClient(transferRecording, *client);
 }
 
 void CPVRClient::cb_transfer_timer_entry(void* kodiInstance,
