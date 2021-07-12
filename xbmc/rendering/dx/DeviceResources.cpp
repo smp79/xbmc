@@ -103,14 +103,8 @@ void DX::DeviceResources::Release()
 
   ReleaseBackBuffer();
   OnDeviceLost(true);
+  DestroySwapChain();
 
-  // leave fullscreen before destroying
-  BOOL bFullScreen;
-  m_swapChain->GetFullscreenState(&bFullScreen, nullptr);
-  if (!!bFullScreen)
-    m_swapChain->SetFullscreenState(false, nullptr);
-
-  m_swapChain = nullptr;
   m_adapter = nullptr;
   m_dxgiFactory = nullptr;
   m_output = nullptr;
@@ -211,7 +205,7 @@ void DX::DeviceResources::SetViewPort(D3D11_VIEWPORT& viewPort) const
 
 bool DX::DeviceResources::SetFullScreen(bool fullscreen, RESOLUTION_INFO& res)
 {
-  if (!m_bDeviceCreated)
+  if (!m_bDeviceCreated || !m_swapChain)
     return false;
 
   critical_section::scoped_lock lock(m_criticalSection);
@@ -535,6 +529,21 @@ HRESULT DX::DeviceResources::CreateSwapChain(DXGI_SWAP_CHAIN_DESC1& desc, DXGI_S
   return hr;
 }
 
+void DX::DeviceResources::DestroySwapChain()
+{
+  if (!m_swapChain)
+    return;
+
+  BOOL bFullcreen = 0;
+  m_swapChain->GetFullscreenState(&bFullcreen, nullptr);
+  if (!!bFullcreen)
+    m_swapChain->SetFullscreenState(false, nullptr); // mandatory before releasing swapchain
+  m_swapChain = nullptr;
+  m_deferrContext->Flush();
+  m_d3dContext->Flush();
+  m_IsTransferPQ = false;
+}
+
 void DX::DeviceResources::ResizeBuffers()
 {
   if (!m_bDeviceCreated)
@@ -553,24 +562,11 @@ void DX::DeviceResources::ResizeBuffers()
     BOOL bFullcreen = 0;
     m_swapChain->GetFullscreenState(&bFullcreen, nullptr);
     if (!!bFullcreen)
-    {
       windowed = false;
-    }
 
-    // check if swapchain needs to be recreated
     m_swapChain->GetDesc1(&scDesc);
-
-    if ((scDesc.Stereo == TRUE) != bHWStereoEnabled)
-    {
-      // check fullscreen state and go to windowing if necessary
-      if (!!bFullcreen)
-      {
-        m_swapChain->SetFullscreenState(false, nullptr); // mandatory before releasing swapchain
-      }
-      m_swapChain = nullptr;
-      m_deferrContext->Flush();
-      m_d3dContext->Flush();
-    }
+    if ((scDesc.Stereo == TRUE) != bHWStereoEnabled) // check if swapchain needs to be recreated
+      DestroySwapChain();
   }
 
   if (m_swapChain) // If the swap chain already exists, resize it.
@@ -589,6 +585,13 @@ void DX::DeviceResources::ResizeBuffers()
       // and correctly set up the new device.
       return;
     }
+    else if (hr == DXGI_ERROR_INVALID_CALL)
+    {
+      // Called when Windows HDR is toggled externally to Kodi.
+      // Is forced to re-create swap chain to avoid crash.
+      CreateWindowSizeDependentResources();
+      return;
+    }
     CHECK_ERR();
   }
   else // Otherwise, create a new one using the same adapter as the existing Direct3D device.
@@ -603,8 +606,11 @@ void DX::DeviceResources::ResizeBuffers()
     swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     swapChainDesc.Stereo = bHWStereoEnabled;
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    // HDR 60 fps needs 6 buffers to avoid frame drops but it's good for all
-    swapChainDesc.BufferCount = 6;
+#ifdef TARGET_WINDOWS_DESKTOP
+    swapChainDesc.BufferCount = 6; // HDR 60 fps needs 6 buffers to avoid frame drops
+#else
+    swapChainDesc.BufferCount = 3; // Xbox don't like 6 backbuffers (3 is fine even for 4K 60 fps)
+#endif
     // FLIP_DISCARD improves performance (needed in some systems for 4K HDR 60 fps)
     swapChainDesc.SwapEffect = CSysInfo::IsWindowsVersionAtLeast(CSysInfo::WindowsVersionWin10)
                                    ? DXGI_SWAP_EFFECT_FLIP_DISCARD
@@ -683,6 +689,11 @@ void DX::DeviceResources::ResizeBuffers()
 void DX::DeviceResources::CreateWindowSizeDependentResources()
 {
   ReleaseBackBuffer();
+
+  DestroySwapChain();
+
+  if (!m_dxgiFactory->IsCurrent()) // HDR toggling requires re-create factory
+    CreateFactory();
 
   UpdateRenderTargetSize();
   ResizeBuffers();
@@ -875,7 +886,8 @@ void DX::DeviceResources::HandleDeviceLost(bool removed)
   if (backbuferExists)
     ReleaseBackBuffer();
 
-  m_swapChain = nullptr;
+  DestroySwapChain();
+
   CreateDeviceResources();
   UpdateRenderTargetSize();
   ResizeBuffers();
@@ -939,8 +951,6 @@ void DX::DeviceResources::Present()
     {
       CreateWindowSizeDependentResources();
     }
-    if (!m_dxgiFactory->IsCurrent())
-      CreateFactory();
   }
 
   if (m_d3dContext == m_deferrContext)
@@ -1140,7 +1150,7 @@ void DX::DeviceResources::SetHdrMetaData(DXGI_HDR_METADATA_HDR10& hdr10) const
 {
   ComPtr<IDXGISwapChain4> swapChain4;
 
-  if (m_swapChain == nullptr)
+  if (!m_swapChain)
     return;
 
   if (SUCCEEDED(m_swapChain.As(&swapChain4)))
@@ -1186,7 +1196,7 @@ void DX::DeviceResources::SetHdrColorSpace(const DXGI_COLOR_SPACE_TYPE colorSpac
 {
   ComPtr<IDXGISwapChain3> swapChain3;
 
-  if (m_swapChain == nullptr)
+  if (!m_swapChain)
     return;
 
   if (SUCCEEDED(m_swapChain.As(&swapChain3)))
@@ -1220,14 +1230,7 @@ HDR_STATUS DX::DeviceResources::ToggleHDR()
   if (m_swapChain && hdrStatus != HDR_STATUS::HDR_TOGGLE_FAILED)
   {
     CLog::LogF(LOGDEBUG, "Re-create swapchain due HDR <-> SDR switch");
-    BOOL bFullcreen = 0;
-    m_swapChain->GetFullscreenState(&bFullcreen, nullptr);
-    if (!!bFullcreen)
-      m_swapChain->SetFullscreenState(false, nullptr);
-    m_swapChain = nullptr;
-    m_deferrContext->Flush();
-    m_d3dContext->Flush();
-    m_IsTransferPQ = false;
+    DestroySwapChain();
   }
 
   DX::Windowing()->SetAlteringWindow(false);
@@ -1245,7 +1248,7 @@ HDR_STATUS DX::DeviceResources::ToggleHDR()
 
 DEBUG_INFO_RENDER DX::DeviceResources::GetDebugInfo() const
 {
-  if (m_swapChain == nullptr)
+  if (!m_swapChain)
     return {};
 
   DXGI_SWAP_CHAIN_DESC1 desc = {};
