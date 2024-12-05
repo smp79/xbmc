@@ -132,7 +132,8 @@ bool CLinuxRendererGLES::Configure(const VideoPicture &picture, float fps, unsig
   // setup the background colour
   m_clearColour = CServiceBroker::GetWinSystem()->UseLimitedColor() ? (16.0f / 0xff) : 0.0f;
 
-  if (picture.hasDisplayMetadata && picture.hasLightMetadata)
+  if (picture.color_transfer == AVCOL_TRC_SMPTE2084 ||
+      picture.color_transfer == AVCOL_TRC_ARIB_STD_B67)
   {
     m_passthroughHDR = CServiceBroker::GetWinSystem()->SetHDR(&picture);
     CLog::Log(LOGDEBUG, "LinuxRendererGLES::Configure: HDR passthrough: {}",
@@ -173,14 +174,6 @@ void CLinuxRendererGLES::AddVideoPicture(const VideoPicture &picture, int index)
   buf.m_srcColTransfer = picture.color_transfer;
   buf.m_srcFullRange = picture.color_range == 1;
   buf.m_srcBits = picture.colorBits;
-
-  buf.hasDisplayMetadata = picture.hasDisplayMetadata;
-  buf.displayMetadata = picture.displayMetadata;
-  buf.lightMetadata = picture.lightMetadata;
-  if (picture.hasLightMetadata && picture.lightMetadata.MaxCLL)
-  {
-    buf.hasLightMetadata = picture.hasLightMetadata;
-  }
 }
 
 void CLinuxRendererGLES::ReleaseBuffer(int idx)
@@ -979,8 +972,6 @@ void CLinuxRendererGLES::RenderSinglePass(int index, int field)
   pYUVShader->SetWidth(planes[0].texwidth);
   pYUVShader->SetHeight(planes[0].texheight);
   pYUVShader->SetColParams(buf.m_srcColSpace, buf.m_srcBits, !buf.m_srcFullRange, buf.m_srcTextureBits);
-  pYUVShader->SetDisplayMetadata(buf.hasDisplayMetadata, buf.displayMetadata,
-                                 buf.hasLightMetadata, buf.lightMetadata);
   pYUVShader->SetToneMapParam(m_videoSettings.m_ToneMapParam);
 
   if (field == FIELD_TOP)
@@ -1130,8 +1121,6 @@ void CLinuxRendererGLES::RenderToFBO(int index, int field)
   pYUVShader->SetWidth(planes[0].texwidth);
   pYUVShader->SetHeight(planes[0].texheight);
   pYUVShader->SetColParams(buf.m_srcColSpace, buf.m_srcBits, !buf.m_srcFullRange, buf.m_srcTextureBits);
-  pYUVShader->SetDisplayMetadata(buf.hasDisplayMetadata, buf.displayMetadata,
-                                 buf.hasLightMetadata, buf.lightMetadata);
   pYUVShader->SetToneMapParam(m_videoSettings.m_ToneMapParam);
 
   if (field == FIELD_TOP)
