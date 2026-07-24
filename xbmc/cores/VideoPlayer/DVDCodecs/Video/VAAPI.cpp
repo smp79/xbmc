@@ -3311,6 +3311,8 @@ void CFFmpegPostproc::Close()
   {
     avfilter_graph_free(&m_pFilterGraph);
   }
+  av_frame_free(&m_pFilterFrameIn);
+  av_frame_free(&m_pFilterFrameOut);
 }
 
 void CFFmpegPostproc::Flush()
@@ -3324,8 +3326,14 @@ void CFFmpegPostproc::Flush()
 
 bool CFFmpegPostproc::UpdateDeintMethod(EINTERLACEMETHOD method)
 {
-  /// \todo switching between certain methods could be done without deinit/init
-  return (m_diMethod == method);
+  if (m_diMethod == method)
+    return true;
+  if (method != VS_INTERLACEMETHOD_DEINTERLACE && method != VS_INTERLACEMETHOD_RENDER_BOB &&
+      method != VS_INTERLACEMETHOD_NONE)
+    return false;
+
+  Close();
+  return Init(method);
 }
 
 bool CFFmpegPostproc::DoesSync()
