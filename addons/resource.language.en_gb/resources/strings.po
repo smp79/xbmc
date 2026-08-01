@@ -25082,3 +25082,27 @@ msgstr ""
 msgctxt "#40802"
 msgid "If enabled, a confirmation dialog will be displayed when files shall be deleted. If disabled, files will be deleted without user confirmation."
 msgstr ""
+
+#. Restrict Auto dithering depth to 4K 50/60Hz with a 10-bit source
+#: system/settings/settings.xml
+msgctxt "#40803"
+msgid "Restrict Auto dithering to 4K 50/60Hz, 10-bit source"
+msgstr ""
+
+#. Description of setting with label #40803 "Restrict Auto dithering to 4K 50/60Hz, 10-bit source"
+#: system/settings/settings.xml
+msgctxt "#40804"
+msgid "When \"Auto dithering depth\" is selected, only dither if the current display mode is 4K at 50Hz or 60Hz and the video source is 10-bit or higher. If disabled, dithering is always applied at the Auto dithering depth."
+msgstr ""
+
+#. Auto dithering depth
+#: system/settings/settings.xml
+msgctxt "#40805"
+msgid "Auto dithering depth"
+msgstr ""
+
+#. Description of setting with label #40805 "Auto dithering depth"
+#: system/settings/settings.xml
+msgctxt "#40806"
+msgid "Sets the bit depth used for dithering when the dithering depth is set to Auto."
+msgstr ""

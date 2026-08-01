@@ -30,6 +30,7 @@
 #include "utils/HDRUtils.h"
 #include "utils/MathUtils.h"
 #include "utils/log.h"
+#include "windowing/GraphicContext.h"
 #include "windowing/WinSystem.h"
 
 #include <mutex>
@@ -46,6 +47,13 @@ CLinuxRendererGLES::CLinuxRendererGLES()
   m_renderSystem = dynamic_cast<CRenderSystemGLES*>(CServiceBroker::GetRenderSystem());
 
   std::tie(m_useDithering, m_ditherDepth) = CServiceBroker::GetWinSystem()->GetDitherSettings();
+  if (m_ditherDepth == 0)
+  {
+    const auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+    m_ditherAutoRestrict = settings->GetBool(CSettings::SETTING_VIDEOSCREEN_DITHERAUTORESTRICT);
+    m_ditherAutoDepth =
+        static_cast<unsigned int>(settings->GetInt(CSettings::SETTING_VIDEOSCREEN_DITHERAUTODEPTH));
+  }
   if (m_useDithering)
   {
     if (m_renderSystem && !m_renderSystem->IsExtSupported("GL_EXT_texture_norm16"))
@@ -688,6 +696,20 @@ void CLinuxRendererGLES::RenderUpdateVideo(bool clear, unsigned int flags, unsig
   glEnable(GL_BLEND);
 }
 
+namespace
+{
+// Auto dithering should only kick in for 4K @ 50/60Hz with a 10-bit source, since that is
+// the mode most likely to see the display truncate colour depth.
+bool Is4K5060WithTenBitSource(unsigned int srcColorBits)
+{
+  const RESOLUTION_INFO& res = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo();
+  bool is4K = res.iScreenWidth >= 3840 && res.iScreenHeight >= 2160;
+  int refresh = MathUtils::round_int(static_cast<double>(res.fRefreshRate));
+  bool is5060 = refresh == 50 || refresh == 60;
+  return is4K && is5060 && srcColorBits >= 10;
+}
+} // namespace
+
 void CLinuxRendererGLES::UpdateVideoFilter()
 {
   CRect srcRect;
@@ -847,19 +869,9 @@ void CLinuxRendererGLES::UpdateVideoFilter()
       unsigned int effectiveDitherDepth = m_ditherDepth;
       if (m_ditherDepth == 0)
       {
-        GLint redBits = 0;
-        glGetIntegerv(GL_RED_BITS, &redBits);
-        // Use framebuffer depth on HDR displays; assume 8-bit on SDR displays
-        // since the CRTC or display will truncate to 8-bit regardless of BO depth.
-        if (CServiceBroker::GetWinSystem()->IsHDRDisplay())
-          effectiveDitherDepth = (redBits > 0) ? redBits : 8;
-        else
-          effectiveDitherDepth = 8;
+        effectiveDitherDepth = m_ditherAutoDepth;
 
-        float scaleFactor = ScalingAboveThreshold();
-        bool downscaling = scaleFactor > 0.0f && scaleFactor < 1.0f;
-        ditherActive = (m_srcFullRange != m_fullRange) || m_srcColorBits > effectiveDitherDepth ||
-                       m_toneMap || downscaling;
+        ditherActive = !m_ditherAutoRestrict || Is4K5060WithTenBitSource(m_srcColorBits);
       }
       static_cast<ConvolutionFilterShader*>(m_pVideoFilterShader)
           ->SetDitherUniforms(ditherActive, m_ditherTex, effectiveDitherDepth, dither_size);
@@ -931,23 +943,14 @@ void CLinuxRendererGLES::LoadShaders(int field)
 
           if (m_ditherDepth == 0 && m_ditherTex)
           {
-            GLint redBits = 0;
-            glGetIntegerv(GL_RED_BITS, &redBits);
-            if (CServiceBroker::GetWinSystem()->IsHDRDisplay())
-              effectiveDitherDepth = (redBits > 0) ? redBits : 8;
-            else
-              effectiveDitherDepth = 8;
+            effectiveDitherDepth = m_ditherAutoDepth;
 
-            float scaleFactor = ScalingAboveThreshold();
-            bool downscaling = scaleFactor > 0.0f && scaleFactor < 1.0f;
-            ditherActive = (m_srcFullRange != m_fullRange) ||
-                           m_srcColorBits > effectiveDitherDepth || m_toneMap || downscaling;
+            ditherActive = !m_ditherAutoRestrict || Is4K5060WithTenBitSource(m_srcColorBits);
 
             CLog::Log(LOGDEBUG,
-                      "GLES: auto dither {} (depth={}, source={}bit, "
-                      "rangeMismatch={}, toneMap={}, downscaling={})",
+                      "GLES: auto dither {} (depth={}, source={}bit, restrict={}, 4K5060_10bit={})",
                       ditherActive ? "on" : "off", effectiveDitherDepth, m_srcColorBits,
-                      m_srcFullRange != m_fullRange, m_toneMap, downscaling);
+                      m_ditherAutoRestrict, Is4K5060WithTenBitSource(m_srcColorBits));
           }
 
           EShaderFormat shaderFormat = GetShaderFormat();

@@ -157,6 +157,8 @@ protected:
   // Dithering
   bool m_useDithering{false};
   unsigned int m_ditherDepth{0};
+  bool m_ditherAutoRestrict{true};
+  unsigned int m_ditherAutoDepth{8};
   unsigned int m_srcColorBits{8};
   bool m_srcFullRange{false};
   GLuint m_ditherTex{0};
