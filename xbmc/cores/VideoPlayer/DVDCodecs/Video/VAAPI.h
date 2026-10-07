@@ -424,8 +424,10 @@ public:
   static void FFReleaseBuffer(void *opaque, uint8_t *data);
 private:
   CVAAPIContext();
+  void Close();
   void SetVaDisplayForSystem();
   bool CreateContext();
+  void DestroyContext();
   void QueryCaps();
   bool CheckSuccess(VAStatus status, const std::string& function);
   bool IsValidDecoder(CDecoder *decoder);
@@ -525,6 +527,8 @@ public:
   virtual ~IVaapiWinSystem() = default;
 
   virtual VADisplay GetVADisplay() = 0;
+  // called once a display returned by GetVADisplay() has been terminated
+  virtual void ReleaseVADisplay(VADisplay display) {}
   virtual void* GetEGLDisplay() { return nullptr; }
 };
 

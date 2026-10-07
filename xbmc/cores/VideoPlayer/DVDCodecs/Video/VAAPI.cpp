@@ -100,6 +100,28 @@ void CVAAPIContext::Release(CDecoder *decoder)
 
   m_refCount--;
   CLog::Log(LOGDEBUG, LOGVIDEO, "VAAPI::{} - refCount now {}", __FUNCTION__, m_refCount);
+  if (m_refCount <= 0)
+  {
+    Close();
+    delete this;
+    m_context = 0;
+  }
+}
+
+void CVAAPIContext::Close()
+{
+  CLog::Log(LOGINFO, "VAAPI::Close - closing decoder context");
+
+  VADisplay display = m_display;
+  DestroyContext();
+
+  if (m_renderNodeFD >= 0)
+  {
+    close(m_renderNodeFD);
+    m_renderNodeFD = -1;
+  }
+  if (display && CDecoder::m_pWinSystem)
+    CDecoder::m_pWinSystem->ReleaseVADisplay(display);
 }
 
 bool CVAAPIContext::EnsureContext(CVAAPIContext **ctx, CDecoder *decoder)
@@ -209,6 +231,24 @@ bool CVAAPIContext::CreateContext()
     return false;
 
   return true;
+}
+
+void CVAAPIContext::DestroyContext()
+{
+  delete[] m_profiles;
+  m_profiles = nullptr;
+  if (m_display)
+  {
+    if (CheckSuccess(vaTerminate(m_display), "vaTerminate"))
+    {
+      m_display = NULL;
+    }
+    else
+    {
+      vaSetErrorCallback(m_display, nullptr, nullptr);
+      vaSetInfoCallback(m_display, nullptr, nullptr);
+    }
+  }
 }
 
 void CVAAPIContext::QueryCaps()
