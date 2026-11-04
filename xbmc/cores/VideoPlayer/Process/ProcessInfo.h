@@ -26,6 +26,15 @@ using CreateProcessControl = CProcessInfo* (*)();
 class CProcessInfo
 {
 public:
+  void SetIsInMenu(bool inMenu)
+  {
+    m_isInMenu.store(inMenu, std::memory_order_relaxed);
+  }
+
+  bool IsInMenu() const
+  {
+    return m_isInMenu.load(std::memory_order_relaxed);
+  }
   static CProcessInfo* CreateInstance();
   static void RegisterProcessControl(const std::string& id, CreateProcessControl createFunc);
   virtual ~CProcessInfo() = default;
@@ -56,6 +65,7 @@ public:
   int GetVideoQueueDataLevel();
   void SetVideoInterlaced(bool interlaced);
   bool GetVideoInterlaced();
+  void SetVideoHwScaling(bool active);
   virtual EINTERLACEMETHOD GetFallbackDeintMethod();
   virtual void SetSwDeinterlacingMethods();
   void UpdateDeinterlacingMethods(std::list<EINTERLACEMETHOD> &methods);
@@ -137,6 +147,9 @@ public:
   void SetVideoSettings(CVideoSettings &settings);
   CVideoSettingsLocked& GetVideoSettingsLocked();
 
+private:
+  std::atomic_bool m_isInMenu{false};
+
 protected:
   CProcessInfo();
 
@@ -160,6 +173,7 @@ protected:
   int m_videoQueueLevel = 0;
   int m_videoQueueDataLevel = 0;
   bool m_videoIsInterlaced;
+  bool m_videoHwScaling{false};
   std::list<EINTERLACEMETHOD> m_deintMethods;
   EINTERLACEMETHOD m_deintMethodDefault;
   mutable CCriticalSection m_videoCodecSection;
