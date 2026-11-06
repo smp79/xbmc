@@ -23,6 +23,7 @@
 #include <atomic>
 #include <optional>
 #include <string_view>
+#include <memory>
 #include <utility>
 
 #include <gbm.h>
@@ -91,6 +92,8 @@ public:
   KODI::UTILS::Colorimetry GetColorimetry() const override { return m_colorimetry; }
   KODI::UTILS::Eotf GetEotf() const override { return m_eotf; }
   bool SetHDR(const VideoPicture* videoPicture) override;
+  bool RefreshHDRLightMetadata(const VideoPicture* videoPicture) override;
+  bool SupportsLiveHDRMetadata() const override;
   bool IsHDRDisplay() override;
   CHDRCapabilities GetDisplayHDRCapabilities() const override;
 
@@ -216,7 +219,7 @@ private:
   //! Whether the "Colorspace" tag was last set for a YCbCr output
   bool m_scanoutYuv{false};
 
-  CDRMPropertyBlob m_hdrBlob;
+  std::shared_ptr<CDRMPropertyBlob> m_hdrBlob;
   KODI::UTILS::Eotf m_eotf = KODI::UTILS::Eotf::TRADITIONAL_SDR;
   KODI::UTILS::Colorimetry m_colorimetry = KODI::UTILS::Colorimetry::DEFAULT;
 

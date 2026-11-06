@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <errno.h>
+#include <mutex>
 #include <string.h>
 #include <thread>
 
@@ -185,6 +186,8 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
 
 void CDRMAtomic::FlipPage(struct gbm_bo* bo, bool rendered, bool videoLayer, bool async)
 {
+  std::unique_lock lock(m_reqLock);
+
   m_commitFellBack = false;
 
   struct drm_fb* drm_fb = nullptr;
@@ -261,6 +264,13 @@ bool CDRMAtomic::InitDrm()
 
 void CDRMAtomic::DestroyDrm()
 {
+  {
+    // release the queued requests, and with them the blobs they own, while the fd is still open
+    std::unique_lock lock(m_reqLock);
+    m_req = nullptr;
+    m_atomicRequestQueue.clear();
+  }
+
   CDRMUtils::DestroyDrm();
 }
 
@@ -318,7 +328,27 @@ bool CDRMAtomic::AddProperty(CDRMObject* object, const char* name, uint64_t valu
 {
   if (!object)
     return false;
+
+  std::unique_lock lock(m_reqLock);
+  if (!m_req)
+    return false;
+
   return m_req->AddProperty(object, name, value);
+}
+
+bool CDRMAtomic::AddBlobProperty(CDRMObject* object,
+                                 const char* name,
+                                 const std::shared_ptr<CDRMPropertyBlob>& blob)
+{
+  if (!object || !blob || !blob->IsValid())
+    return false;
+
+  std::unique_lock lock(m_reqLock);
+  if (!m_req || !m_req->AddProperty(object, name, blob->Get()))
+    return false;
+
+  m_req->HoldBlob(blob);
+  return true;
 }
 
 CDRMAtomic::CDRMAtomicRequest::CDRMAtomicRequest() : m_atomicRequest(drmModeAtomicAlloc())
